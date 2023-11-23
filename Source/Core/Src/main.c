@@ -21,6 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "stdio.h"
+#include "string.h"
 #include "scheduler.h"
 /* USER CODE END Includes */
 
@@ -43,8 +45,13 @@ IWDG_HandleTypeDef hiwdg;
 
 TIM_HandleTypeDef htim2;
 
-/* USER CODE BEGIN PV */
+UART_HandleTypeDef huart1;
 
+/* USER CODE BEGIN PV */
+unsigned int timestamp = 0;
+char *strError;
+char strTimestamp[32];
+uint8_t isTaskJustRun = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,13 +59,15 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_IWDG_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void Blinking_LED0(void);
 void Blinking_LED1(void);
 void Blinking_LED2(void);
 void Blinking_LED3(void);
 void Blinking_LED4(void);
-void goSleep(void);
+void UART_Report_Status(uint8_t errorCode);
+void UART_Report_Timestamp(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -85,7 +94,7 @@ int main(void)
 
   /* USER CODE END Init */
 
-  /* Configure the system clock */
+  /* Configur	e the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
@@ -96,18 +105,23 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_IWDG_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim2);
   SCH_Init();
+
+
+  HAL_GPIO_WritePin(GPIOA, LED0_Pin, 1);
+  HAL_GPIO_WritePin(GPIOA, LED1_Pin, 1);
+  HAL_GPIO_WritePin(GPIOA, LED2_Pin, 1);
+  HAL_GPIO_WritePin(GPIOA, LED3_Pin, 1);
+  HAL_GPIO_WritePin(GPIOA, LED4_Pin, 1);
 
   SCH_Add_Task(Blinking_LED0, 0, 500);
   SCH_Add_Task(Blinking_LED1, 10, 1000);
-  //SCH_Add_Task(Blinking_LED2, 20, 1500);
-  //SCH_Add_Task(Blinking_LED3, 30, 2000);
-  //SCH_Add_Task(Blinking_LED4, 40, 2500);
-
-  HAL_TIM_Base_Start_IT(&htim2);
-  //HAL_GPIO_WritePin(GPIOB, SLEEP_Pin, 1);
-
+  SCH_Add_Task(Blinking_LED2, 10, 1500);
+  SCH_Add_Task(Blinking_LED3, 20, 2000);
+  SCH_Add_Task(Blinking_LED4, 20, 2500);
 
   /* USER CODE END 2 */
 
@@ -116,8 +130,18 @@ int main(void)
 
   while (1)
   {
-	  SCH_Dispatch_Tasks();
-	  goSleep();
+
+	  isTaskJustRun = SCH_Dispatch_Tasks();
+
+	  //Get error code from SCH_Report_Status()
+	  //Then give code for UART_Report_Status() to transmit string error.
+	  UART_Report_Status(SCH_Report_Status());
+
+	  //Print timestamp when some task ran.
+	  UART_Report_Timestamp();
+
+	  //Go to sleep if no task need to run
+	  SCH_Sleep();
 
     /* USER CODE END WHILE */
 
@@ -237,6 +261,39 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 9600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -266,6 +323,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim){
 	SCH_Update();
+	timestamp++;
 	HAL_IWDG_Refresh(&hiwdg);
 }
 void Blinking_LED0(void){
@@ -283,10 +341,28 @@ void Blinking_LED3(void){
 void Blinking_LED4(void){
 	HAL_GPIO_TogglePin(GPIOA, LED4_Pin);
 }
-void goSleep(void){
-	HAL_SuspendTick();
-	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-	HAL_ResumeTick();
+void UART_Report_Status(uint8_t errorCode){
+	switch(errorCode){
+	case NO_ERROR:
+		strError = "";
+		break;
+	case ERROR_SCH_TOO_MANY_TASKS:
+		strError = "ERROR: Too many tasks\r\n";
+		break;
+	case ERROR_SCH_DELETE_NULL_TASK:
+		strError = "ERROR: Delete null task\r\n";
+		break;
+	default:
+		strError = "ERROR: Unknown error\r\n";
+	}
+	if (!strcmp(strError, ""))
+		HAL_UART_Transmit(&huart1, (uint8_t*) strError, strlen(strError), HAL_MAX_DELAY);
+}
+void UART_Report_Timestamp(void){
+	if (isTaskJustRun == 0) return;
+	isTaskJustRun = 0;
+	sprintf(strTimestamp, "%u: ID=%u\r\n", timestamp, TaskIdJustRun);
+	HAL_UART_Transmit(&huart1, (uint8_t*) strTimestamp, strlen(strTimestamp), HAL_MAX_DELAY);
 }
 /* USER CODE END 4 */
 
