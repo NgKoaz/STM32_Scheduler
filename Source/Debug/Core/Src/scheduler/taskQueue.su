@@ -1,0 +1,8 @@
+../Core/Src/scheduler/taskQueue.c:25:6:initQueue	16	static
+../Core/Src/scheduler/taskQueue.c:41:9:_dequeueIdleId	16	static
+../Core/Src/scheduler/taskQueue.c:56:9:_enqueueTask	32	static
+../Core/Src/scheduler/taskQueue.c:104:9:createTask	32	static
+../Core/Src/scheduler/taskQueue.c:123:9:deleteTask	24	static
+../Core/Src/scheduler/taskQueue.c:162:9:dispatchTask	16	static
+../Core/Src/scheduler/taskQueue.c:191:6:update	16	static
+../Core/Src/scheduler/taskQueue.c:209:6:sleep	8	static

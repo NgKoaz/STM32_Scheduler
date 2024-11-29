@@ -23,7 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "string.h"
-#include "scheduler.h"
+#include "scheduler/scheduler.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +52,7 @@ unsigned int timestamp = 0;
 char *strError;
 char strTimestamp[32];
 uint8_t isTaskJustRun = 0;
+uint8_t TaskIdJustRun = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +69,7 @@ void Blinking_LED3(void);
 void Blinking_LED4(void);
 void UART_Report_Status(uint8_t errorCode);
 void UART_Report_Timestamp(void);
+void Delete_Task(uint8_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -108,8 +110,8 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim2);
-  SCH_Init();
 
+  SCH_Init();
 
   HAL_GPIO_WritePin(GPIOA, LED0_Pin, 1);
   HAL_GPIO_WritePin(GPIOA, LED1_Pin, 1);
@@ -117,11 +119,15 @@ int main(void)
   HAL_GPIO_WritePin(GPIOA, LED3_Pin, 1);
   HAL_GPIO_WritePin(GPIOA, LED4_Pin, 1);
 
-  SCH_Add_Task(Blinking_LED0, 0, 500);
-  SCH_Add_Task(Blinking_LED1, 10, 1000);
-  SCH_Add_Task(Blinking_LED2, 10, 1500);
-  SCH_Add_Task(Blinking_LED3, 20, 2000);
-  SCH_Add_Task(Blinking_LED4, 20, 2500);
+  uint8_t task1 = SCH_Add_Task(Blinking_LED0, 0, 500);
+  uint8_t task2 = SCH_Add_Task(Blinking_LED1, 10, 1000);
+  uint8_t task3 = SCH_Add_Task(Blinking_LED2, 10, 1500);
+  uint8_t task4 = SCH_Add_Task(Blinking_LED3, 20, 2000);
+  uint8_t task5 = SCH_Add_Task(Blinking_LED4, 20, 2500);
+//  SCH_Delete_Task(task3);
+  SCH_Delete_Task(task5);
+//  SCH_Delete_Task(task5);
+
 
   /* USER CODE END 2 */
 
@@ -130,18 +136,19 @@ int main(void)
 
   while (1)
   {
-
-	  isTaskJustRun = SCH_Dispatch_Tasks();
-
+//	  Blinking_LED0();
+	  isTaskJustRun = SCH_Dispatch_Task();
+//	  Blinking_LED0();
 	  //Get error code from SCH_Report_Status()
 	  //Then give code for UART_Report_Status() to transmit string error.
-	  UART_Report_Status(SCH_Report_Status());
+//	  UART_Report_Status(SCH_Report_Status());
 
 	  //Print timestamp when some task ran.
-	  UART_Report_Timestamp();
+//	  UART_Report_Timestamp();
 
 	  //Go to sleep if no task need to run
 	  SCH_Sleep();
+//	  HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
@@ -341,6 +348,10 @@ void Blinking_LED3(void){
 void Blinking_LED4(void){
 	HAL_GPIO_TogglePin(GPIOA, LED4_Pin);
 }
+void Delete_Task(uint8_t taskId) {
+	SCH_Delete_Task(taskId);
+}
+
 void UART_Report_Status(uint8_t errorCode){
 	switch(errorCode){
 	case NO_ERROR:

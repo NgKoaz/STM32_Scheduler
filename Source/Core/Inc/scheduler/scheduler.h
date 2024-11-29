@@ -8,11 +8,19 @@
 #ifndef INC_SCHEDULER_H_
 #define INC_SCHEDULER_H_
 
-#include "main.h"
+#include <main.h>
+#include <scheduler/taskQueue.h>
 
-#define SCH_MAX_TASKS 	10
+#define TIMER_CYCLE 	10
+#define SCH_MAX_TASKS 	254
 #define nullptr 		NULL
 #define null			0x00000000
+
+#if defined(SCH_MAX_TASKS) && (SCH_MAX_TASKS > 255)
+    #define MY_TYPE uint16_t
+#else
+    #define MY_TYPE uint8_t
+#endif
 
 #define NO_ERROR											0x00
 #define ERROR_SCH_TOO_MANY_TASKS 							0x01
@@ -27,22 +35,13 @@
 //OPTIONAL DEFINE HERE
 #define SCH_REPORT_ERRORS
 
-
-typedef struct {
-	void (*pFunc)(void);
-	uint32_t	Delay;
-	uint32_t 	Period;
-	uint8_t 	NextTaskID;
-} sTask;
-
 extern uint8_t TaskIdJustRun;
 
 void 	SCH_Init(void);
 void 	SCH_Update(void);
-uint8_t SCH_Add_Task(void (*pFunc)(void), uint32_t Delay, uint32_t Period);
-uint8_t SCH_Dispatch_Tasks(void);
-uint8_t SCH_Delete_Task(uint8_t TaskID);
+MY_TYPE SCH_Add_Task(void (*pFunc)(void), uint32_t delay, uint32_t period);
+uint8_t SCH_Dispatch_Task(void);
+uint8_t SCH_Delete_Task(MY_TYPE TaskId);
 void 	SCH_Sleep(void);
-uint8_t SCH_Report_Status(void);
 
 #endif /* INC_SCHEDULER_H_ */
